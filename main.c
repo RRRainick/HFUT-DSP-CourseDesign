@@ -6,8 +6,8 @@
 
 int main(int argc, char *argv[])
 {
-    double input_sequence[2048][2];
-    short tmp_array[32];
+    float input_sequence[LENGTH][WIDTH]; // 默认零矩阵，满足序列自动补零
+    unsigned char tmp_array[32]; // float类型在x64上占64bit
     char ch;
     int digit = 0;
     double index_decp = 0.0;
@@ -15,6 +15,10 @@ int main(int argc, char *argv[])
     _Bool plus_sign = 1;
     double tmp_num = 0.0;
     FILE *fp;
+    /*
+     * open input sequence file
+     * store in array input_sequence[LENGTH][WIDTH]
+     */
     if(argc != 2){
         printf("usage of %s is incorrect.\n", argv[0]);
         exit(EXIT_FAILURE);
@@ -23,11 +27,8 @@ int main(int argc, char *argv[])
         printf("can not open file %s.\n", argv[1]);
         exit(EXIT_FAILURE);
     }
-    /*
     while((ch = getc(fp)) != EOF){
-        putc(ch, stdout);
-    }*/
-    while((ch = getc(fp)) != EOF){
+        // sign check
         if(ch == '-'){
             plus_sign = 0;
             continue;
@@ -49,19 +50,21 @@ int main(int argc, char *argv[])
             }
             if(!plus_sign)
                 tmp_num = (-1.0)*tmp_num;
-            if(j_input == 1){
+            if(j_input == 2){
                 i_input++;
                 j_input = 0;
             }
             input_sequence[i_input][j_input] = tmp_num;
             printf("%f\n", tmp_num);
-            digit = 0; tmp_num = 0.0; plus_sign = 1; index_decp = 0.0;
+            digit = 0; tmp_num = 0.0; plus_sign = 1; index_decp = 0.0; j_input++; // variable reset
         }
         else{
-           tmp_array[digit++] = ch - '0';
+           tmp_array[digit++] = ch - '0'; // char2short
         }
     }
     fclose(fp);
+
+
     return 0;
 }
 
