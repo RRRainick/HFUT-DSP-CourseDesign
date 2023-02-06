@@ -3,11 +3,12 @@
 #include<math.h>
 #include<complex.h>
 #include"br_lookup_table.h"
+#include"WN_lookup_table.h"
 
 #ifdef LENGTH
 #else
-    LENGTH = 2048;
-    WIDTH = 2;
+    #define LENGTH 2048
+    #define WIDTH 2
 #endif
 
 _Bool read_file(float *ptr_seq, int argc, char *argv[])
@@ -77,7 +78,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
                     tmp_num = (-1.0)*tmp_num;
                 *ptr_seq = tmp_num;
                 ptr_seq++; count--;
-                printf("%f\n", tmp_num);
+                // printf("%f\n", tmp_num);
                 digit = 0; tmp_num = 0.0; plus_sign = 1; i_decp = 0.0;  // 变量复位
                 break;
             default:
@@ -91,10 +92,12 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
 }
 
 
-void reverse_seq(_Bool complex_sign, float complex *xn){
+void reverse_seq(_Bool complex_sign, float complex *xn)
+{
     // log_{2}^{2048}=11, log_{2}^{4096}=12
     unsigned int count;
     unsigned int const *ptr_br_table;
+    _Bool i_arr_sign[LENGTH * WIDTH] = {0}; // 防止重复交换
     if(complex_sign){
         count = LENGTH;
         ptr_br_table = complex_br_table;
@@ -105,11 +108,96 @@ void reverse_seq(_Bool complex_sign, float complex *xn){
     }
     for(unsigned int k = 0; k < count; k++){
         unsigned int index = ptr_br_table[k];
-        complex tmp = xn[k];
-        xn[k] = xn[index]; xn[index] = tmp; 
+        if(i_arr_sign[k] == 1 || i_arr_sign[index] == 1)
+            break;  
+        else{
+            float complex tmp = xn[k];
+            xn[k] = xn[index]; xn[index] = tmp; 
+            i_arr_sign[k] = 1; i_arr_sign[index] = 1;
+        }
+    }
+}
+
+void fft(_Bool complex_sign, float complex * const r_xn)
+{
+    unsigned int length;
+    float complex const *r_ptr_WN_table;
+    float complex const *o_ptr_WN_table;
+    float complex const *ptr_WN_table;
+
+    if(complex_sign){
+        length = LENGTH;
+        r_ptr_WN_table = complex_WN_table;
+        o_ptr_WN_table = complex_WN_table;
+        ptr_WN_table = complex_WN_table;
+    }
+    else{
+        length = LENGTH * WIDTH;
+        r_ptr_WN_table = real_WN_table;
+        o_ptr_WN_table = real_WN_table;
+        ptr_WN_table = real_WN_table;
     }
 
+    unsigned int max_stage = (unsigned int)log2((double)length);
+    unsigned int j_max = length / 2; //unsigned int j_max = (unsigned int)pow(2.0, (double)(max_stage-1)); 
+    unsigned int k_max = 1;
+    float complex *ptr_r_xn = r_xn;
+    //unsigned int count = 0;
+    int gap;
+    int gap_WN;
+    for(unsigned int i = 1; i <= max_stage; i++){
+        for(unsigned int j = 1; j <= j_max; j++){
+            for(unsigned int k = 1; k <= k_max; k++){
+                float complex tmp1, tmp2;
+                tmp1 = ptr_r_xn[0] + ptr_WN_table[0] * ptr_r_xn[k_max];
+                tmp2 = ptr_r_xn[0] + ptr_WN_table[k_max] * ptr_r_xn[k_max];
+                ptr_r_xn[0] = tmp1; ptr_r_xn[k_max] = tmp2;
+                ptr_r_xn++;
+                gap = ptr_r_xn - r_xn;
+                ptr_WN_table++;
+                gap_WN = ptr_WN_table - r_ptr_WN_table;
+                //count++;
+            }
+            ptr_r_xn = r_xn + j * k_max * 2;
+            ptr_WN_table = r_ptr_WN_table + j * k_max * 2;
+            gap = ptr_r_xn - r_xn;
+            gap_WN = ptr_WN_table - r_ptr_WN_table;
+        }
+        ptr_r_xn = r_xn;
+        gap = ptr_r_xn - r_xn;
+        r_ptr_WN_table += length;
+        ptr_WN_table = r_ptr_WN_table;
+        gap_WN = ptr_WN_table - o_ptr_WN_table;
+        j_max /= 2;
+        k_max *= 2;
+    }
+}
 
+void write_file(_Bool complex_sign, float complex *str_Xk)
+{
+    float complex const *str_output = str_Xk;
+    unsigned int count;
+    FILE *fp;
+    if(complex_sign)
+        count = LENGTH;
+    else
+        count = LENGTH * WIDTH;
+    
+    if((fp = fopen("D:\\Rainick\\Code_Repo\\Matlab\\output.txt", "w")) == NULL){
+        fprintf(stdout, "can not open file D:\\Rainick\\Code_Repo\\Matlab\\output.txt.\n");
+        exit(EXIT_FAILURE);
+    }
+    while(count > 0){
+        float real = creal(*str_output);
+        float imag = cimag(*str_output);
+        if(imag < 0)
+            fprintf(fp, "%f%fi\n", real, imag);
+        else
+            fprintf(fp, "%f+%fi\n", real, imag);
+        str_output++;
+        count--;
+    }
+    fclose(fp);
 }
 
 int main(int argc, char *argv[])
@@ -118,9 +206,7 @@ int main(int argc, char *argv[])
     _Bool complex_sign = read_file(input_seq, argc, argv);
     float const (*str_input)[WIDTH] = input_seq;
     void *xn;   // 输入序列指针
-    void *Xk;
     float complex real_xn[LENGTH*WIDTH]; float complex complex_xn[LENGTH]; // 由于C语言不支持函数重载，因此将real_xn和complex_xn均定义为float complex类型
-    float real_Xk[LENGTH*WIDTH]; float complex complex_Xk[LENGTH];
 
     if(complex_sign){
         for(int i = 0; i < LENGTH; i++){
@@ -139,6 +225,10 @@ int main(int argc, char *argv[])
     }
     
     reverse_seq(complex_sign, xn);
+
+    fft(complex_sign, xn);
+    
+    write_file(complex_sign, xn);
     return 0;
 }
 
