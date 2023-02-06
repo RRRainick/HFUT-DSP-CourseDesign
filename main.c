@@ -109,7 +109,7 @@ void reverse_seq(_Bool complex_sign, float complex *xn)
     for(unsigned int k = 0; k < count; k++){
         unsigned int index = ptr_br_table[k];
         if(i_arr_sign[k] == 1 || i_arr_sign[index] == 1)
-            break;  
+            continue;  
         else{
             float complex tmp = xn[k];
             xn[k] = xn[index]; xn[index] = tmp; 
