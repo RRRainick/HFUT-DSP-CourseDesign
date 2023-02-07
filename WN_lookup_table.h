@@ -1,11 +1,11 @@
-#ifdef LENGTH
-#else
+#ifndef LENGTH
     #define LENGTH 2048
+#endif
+#ifndef WIDTH
     #define WIDTH 2
 #endif
 
-#ifdef complex
-#else
+#ifndef complex
     #include<complex.h>
 #endif
 

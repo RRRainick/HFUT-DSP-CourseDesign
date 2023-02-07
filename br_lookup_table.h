@@ -1,6 +1,7 @@
-#ifdef LENGTH
-#else
+#ifndef LENGTH
     #define LENGTH 2048
+#endif
+#ifndef WIDTH
     #define WIDTH 2
 #endif
 const unsigned int complex_br_table[LENGTH] = {
