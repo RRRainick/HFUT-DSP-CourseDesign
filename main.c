@@ -17,19 +17,18 @@ LARGE_INTEGER start, end;
 double resort_ms, reverse_ms, btf_ms;
 
 _Bool read_file(float *ptr_seq, int argc, char *argv[]);
-float complex *resort_seq(_Bool complex_sign, float const const (*str_input)[WIDTH], void *xn, float complex *real_xn, float complex *complex_xn);
+float complex *resort_seq(_Bool complex_sign, float const (*str_input)[WIDTH], float complex *real_xn, float complex *complex_xn);
 void reverse_seq(_Bool complex_sign, float complex *xn);
 void compute_butterfly(_Bool complex_sign, float complex *const r_xn);
 void write_file(_Bool complex_sign, float complex *Xk);
 
 int main(int argc, char *argv[])
 {
-    float input_seq[LENGTH][WIDTH]; // 默认零矩阵，满足序列自动补零
+    float input_seq[LENGTH][WIDTH] = {0}; // 默认零矩阵，满足序列自动补零
     _Bool complex_sign = read_file(input_seq, argc, argv);
     float const (*str_input)[WIDTH] = input_seq;
-    void *xn;   // 输入序列指针
     float complex real_xn[LENGTH*WIDTH]; float complex complex_xn[LENGTH]; // 由于C语言不支持函数重载，因此将real_xn和complex_xn均定义为float complex类型
-    xn = resort_seq(complex_sign, str_input, xn, real_xn, complex_xn);
+    float complex *xn = resort_seq(complex_sign, str_input, real_xn, complex_xn);
    
     reverse_seq(complex_sign, xn);
 
@@ -84,7 +83,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
      * 数据储存到ptr_sequence指向的数组
      */
     while((ch = getc(fp)) != EOF){
-        if(count == 0)  //避免数组越界
+        if(count == 0)  //避免数组越界, 同时截断长度超过2048的复序列和超过4096的实序列
             break;
         switch(ch){
             case '.':
@@ -122,7 +121,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
 
 }
 
-float complex *resort_seq(_Bool complex_sign, float const (*str_input)[WIDTH], void *xn, float complex *real_xn, float complex *complex_xn)
+float complex *resort_seq(_Bool complex_sign, float const (*str_input)[WIDTH], float complex *real_xn, float complex *complex_xn)
 {
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&start);
@@ -184,19 +183,17 @@ void compute_butterfly(_Bool complex_sign, float complex * const r_xn)
     QueryPerformanceCounter(&start);
     unsigned int length;
     float complex const *r_ptr_WN_table;
-    float complex const *o_ptr_WN_table;
+    // float complex const *o_ptr_WN_table;
     float complex const *ptr_WN_table;
 
     if(complex_sign){
         length = LENGTH;
         r_ptr_WN_table = complex_WN_table;
-        o_ptr_WN_table = complex_WN_table;
         ptr_WN_table = complex_WN_table;
     }
     else{
         length = LENGTH * WIDTH;
         r_ptr_WN_table = real_WN_table;
-        o_ptr_WN_table = real_WN_table;
         ptr_WN_table = real_WN_table;
     }
 
@@ -205,8 +202,6 @@ void compute_butterfly(_Bool complex_sign, float complex * const r_xn)
     unsigned int k_max = 1;
     float complex *ptr_r_xn = r_xn;
     //unsigned int count = 0;
-    int gap;
-    int gap_WN;
     for(unsigned int i = 1; i <= max_stage; i++){
         for(unsigned int j = 1; j <= j_max; j++){
             for(unsigned int k = 1; k <= k_max; k++){
@@ -215,21 +210,15 @@ void compute_butterfly(_Bool complex_sign, float complex * const r_xn)
                 tmp2 = ptr_r_xn[0] + ptr_WN_table[k_max] * ptr_r_xn[k_max];
                 ptr_r_xn[0] = tmp1; ptr_r_xn[k_max] = tmp2;
                 ptr_r_xn++;
-                gap = ptr_r_xn - r_xn;
                 ptr_WN_table++;
-                gap_WN = ptr_WN_table - r_ptr_WN_table;
                 //count++;
             }
             ptr_r_xn = r_xn + j * k_max * 2;
             ptr_WN_table = r_ptr_WN_table + j * k_max * 2;
-            gap = ptr_r_xn - r_xn;
-            gap_WN = ptr_WN_table - r_ptr_WN_table;
         }
         ptr_r_xn = r_xn;
-        gap = ptr_r_xn - r_xn;
         r_ptr_WN_table += length;
         ptr_WN_table = r_ptr_WN_table;
-        gap_WN = ptr_WN_table - o_ptr_WN_table;
         j_max /= 2;
         k_max *= 2;
     }
@@ -247,8 +236,8 @@ void write_file(_Bool complex_sign, float complex *Xk)
     else
         count = LENGTH * WIDTH;
     
-    if((fp = fopen("D:\\Rainick\\Code_Repo\\Matlab\\output.txt", "w")) == NULL){
-        fprintf(stdout, "can not open file D:\\Rainick\\Code_Repo\\Matlab\\output.txt.\n");
+    if((fp = fopen(".\\data\\output.txt", "w")) == NULL){
+        fprintf(stdout, "can not open file output.txt.\n");
         exit(EXIT_FAILURE);
     }
     while(count > 0){
