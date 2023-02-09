@@ -69,7 +69,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
      * 打开储存输入序列的txt文件
      * 对不满足要求的参数报错并退出
      */
-    if(argc != 3){
+    if(argc != 2){
         printf("usage of %s is incorrect.\n", argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -79,7 +79,6 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
     }
     /*
      * 根据命令参数判别实序列和复序列
-     */
     if(*(argv[2]) == 'c' || *(argv[2]) == 'C'){
         complex_sign = 1;
     }
@@ -90,6 +89,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
         printf("please indicate sequence format in %s.\n", argv[1]);
         exit(EXIT_FAILURE);
     }
+     */
     /*
      * 按字符读取txt文件
      * 将char转为float
@@ -102,6 +102,9 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
                 break;
             case '-':
                 plus_sign = 0;
+                break;
+            case 'i':
+                complex_sign = 1;
                 break;
             case ' ':
             case '\n':
