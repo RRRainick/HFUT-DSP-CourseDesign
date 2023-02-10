@@ -15,7 +15,7 @@
 
 LARGE_INTEGER freq;
 LARGE_INTEGER start, end;
-double rollover_ms, reverse_ms, btf_ms, duration_ms;
+double rollover_us, reverse_us, btf_us, duration_us, real_us;
 
 _Bool read_file(float *ptr_seq, int argc, char *argv[]);
 void rollover_seq(float const (*ptr_input)[WIDTH], float complex *complex_xn);
@@ -26,28 +26,30 @@ void write_file(_Bool complex_sign, float complex *Xk, float complex *real_Xk);
 
 int main(int argc, char *argv[])
 {
+    LARGE_INTEGER main_freq;
+    LARGE_INTEGER main_start, main_end;
     float input_seq[LENGTH][WIDTH] = {0}; // 默认零矩阵，实现序列自动补零
     _Bool complex_sign = read_file(input_seq, argc, argv);
     float const (*ptr_input)[WIDTH] = input_seq;
-    float complex xn[LENGTH]; // 由于C语言不支持函数重载，因此将real_xn和complex_xn均定义为float complex类型
-    float complex real_Xk[LENGTH * WIDTH];
-    rollover_seq(ptr_input, xn);
+    float complex xn[LENGTH]; // 原序列数组；FFT的结果由于原位运算也储存于这个数组
+    float complex real_Xk[LENGTH * WIDTH];  // 实序列FFT数组，其长度与复序列FFT数组长度不同
+    rollover_seq(ptr_input, xn);    // 重排输入序列为float complex数组
    
-    QueryPerformanceFrequency(&freq);   // 获取CPU时钟周期
-    QueryPerformanceCounter(&start);    // 获取当前经过的CPU时钟次数
+    QueryPerformanceFrequency(&main_freq);   // 获取CPU时钟周期
+    QueryPerformanceCounter(&main_start);    // 获取当前经过的CPU时钟次数
 
-    bitreorder_seq(xn);
+    bitreorder_seq(xn); // 序列反比特排序
 
-    compute_butterfly(xn);
+    compute_butterfly(xn);  // 蝶形运算
     
-    process_real_seq(complex_sign, xn, real_Xk);
+    process_real_seq(complex_sign, xn, real_Xk);    // 实序列修正
 
-    QueryPerformanceCounter(&end);  // 获取当前经过的CPU时钟次数
-    duration_ms = (double)(end.QuadPart - start.QuadPart) * 1e3 / (double)(freq.QuadPart);    // 时钟次数作差并除以时钟频率得到经过的时间，以ms为单位的
+    QueryPerformanceCounter(&main_end);  // 获取当前经过的CPU时钟次数
+    duration_us = (double)(main_end.QuadPart - main_start.QuadPart) * 1e6 / (double)(main_freq.QuadPart);    // 时钟次数作差并除以时钟频率得到经过的时间，以ms为单位的
 
     write_file(complex_sign, xn, real_Xk);
-    printf("rollover cost %fms, reverse cost %fms, compute butterfly cost %fms.\nduration is %fms.\n", rollover_ms, reverse_ms, btf_ms, duration_ms);
-
+    printf("rollover cost %fus, reverse cost %fus, compute butterfly cost %fus, real process cost %fus.\n", rollover_us, reverse_us, btf_us, real_us);
+    printf("duration is %fus.\n", duration_us);
     return 0;
 }
 
@@ -82,19 +84,6 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     /*
-     * 根据命令参数判别实序列和复序列
-    if(*(argv[2]) == 'c' || *(argv[2]) == 'C'){
-        complex_sign = 1;
-    }
-    else if(*(argv[2]) == 'r' || *(argv[2]) == 'R'){
-        complex_sign = 0;
-    }
-    else{
-        printf("please indicate sequence format in %s.\n", argv[1]);
-        exit(EXIT_FAILURE);
-    }
-     */
-    /*
      * 按字符读取txt文件
      * 将char转为float
      * 数据储存到ptr_sequence指向的数组
@@ -107,7 +96,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
             case '-':
                 plus_sign = 0;
                 break;
-            case 'i':
+            case 'i':   // 读取到i及判断为复序列
                 complex_sign = 1;
                 break;
             case ' ':
@@ -126,7 +115,6 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
                     tmp_num = (-1.0)*tmp_num;
                 *ptr_seq = tmp_num;
                 ptr_seq++; count--;
-                // printf("%f\n", tmp_num);
                 digit = 0; tmp_num = 0.0; plus_sign = 1; i_decp = 0.0;  // 变量复位
                 break;
             default:
@@ -141,10 +129,8 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
 
 /*
  * 用于根据储存数组的实数和复数类型，将其进行数组降维和数据类型转换（float-->float complex)
- * complex_sign：复数标识符
  * ptr_input：二维数组指针
- * real_xn：转存的实数数组指针
- * complex_xn：转存的复数数组指针
+ * xn：转存的复序列指针
  * 返回值：对数组元素处理的对应数组指针
  */
 void rollover_seq(float const (*ptr_input)[WIDTH], float complex *xn)
@@ -152,20 +138,23 @@ void rollover_seq(float const (*ptr_input)[WIDTH], float complex *xn)
     QueryPerformanceFrequency(&freq);   // 获取CPU时钟周期
     QueryPerformanceCounter(&start);    // 获取当前经过的CPU时钟次数
     float complex *output_xn;
+    /*
+     * 对实序列：偶序列作为实部，奇序列作为虚部
+     * 对复序列：实部对应实部，虚部对应虚部
+     */
     for(int i = 0; i < LENGTH; i++){
         xn[i] = (*ptr_input)[0] + (*ptr_input)[1] * I;
         ptr_input++;
     }
 
     QueryPerformanceCounter(&end);  // 获取当前经过的CPU时钟次数
-    rollover_ms = (double)(end.QuadPart - start.QuadPart) * 1e3 / (double)(freq.QuadPart);    // 时钟次数作差并处以时钟频率得到经过的时间，以ms为单位的
+    rollover_us = (double)(end.QuadPart - start.QuadPart) * 1e6 / (double)(freq.QuadPart);    // 时钟次数作差并处以时钟频率得到经过的时间，以ms为单位的
     
     return;
 } 
 
 /*
  * 将信号序列进行bitreverse排序
- * complex_sign：复数标识符
  * xn：信号序列的数组指针
 */
 void bitreorder_seq(float complex *xn)
@@ -174,18 +163,9 @@ void bitreorder_seq(float complex *xn)
     QueryPerformanceCounter(&start);
     // log_{2}^{2048}=11, log_{2}^{4096}=12
     unsigned int count = LENGTH; // 排序次数计数器
-    unsigned int const *ptr_br_table = complex_br_table;   // 查找表指针
+    unsigned int const *ptr_br_table = br_table;   // 查找表指针
     _Bool i_arr_sign[LENGTH * WIDTH] = {0}; // inverse_array_sign, 标识已经交换过的元素，防止重复交换
-    /*
-    if(complex_sign){
-        count = LENGTH;
-        ptr_br_table = complex_br_table;
-    }
-    else{
-        count = LENGTH * WIDTH;
-        ptr_br_table = real_br_table;
-    }
-    */
+    
     for(unsigned int k = 0; k < count; k++){
         unsigned int index = ptr_br_table[k];
         if(i_arr_sign[k] == 1 || i_arr_sign[index] == 1)
@@ -198,14 +178,13 @@ void bitreorder_seq(float complex *xn)
     }
 
     QueryPerformanceCounter(&end);
-    reverse_ms = (double)(end.QuadPart - start.QuadPart) * 1e3 / (double)(freq.QuadPart);
+    reverse_us = (double)(end.QuadPart - start.QuadPart) * 1e6 / (double)(freq.QuadPart);
 
     return;    
 }
 
 /*
  * 对bitreverse后的序列进行蝶形运算
- * complex_sign：复数标识符
  * r_xn：reverse_xn，已bitreverse后的序列的数组指针
  */
 void compute_butterfly(float complex * const r_xn)
@@ -216,19 +195,6 @@ void compute_butterfly(float complex * const r_xn)
     float complex const *r_ptr_WN_table = complex_WN_table;    // reference_ptr_WN_table，指向每个stage最初的旋转因子
     float complex const *ptr_WN_table = complex_WN_table;      // 旋转因子查找表指针
     float complex *ptr_r_xn = r_xn; 
-
-    /*
-    if(complex_sign){
-        length = LENGTH;
-        r_ptr_WN_table = complex_WN_table;
-        ptr_WN_table = complex_WN_table;
-    }
-    else{
-        length = LENGTH * WIDTH;
-        r_ptr_WN_table = real_WN_table;
-        ptr_WN_table = real_WN_table;
-    }
-    */
 
     unsigned int max_stage = (unsigned int)log2((double)length);    //计算所需的stage个数
     unsigned int j_max = length / 2;    // 每个stage内循环次数
@@ -255,30 +221,40 @@ void compute_butterfly(float complex * const r_xn)
     }
 
     QueryPerformanceCounter(&end);
-    btf_ms = (double)(end.QuadPart - start.QuadPart) * 1e3 / (double)(freq.QuadPart);
+    btf_us = (double)(end.QuadPart - start.QuadPart) * 1e6 / (double)(freq.QuadPart);
 
     return;
 }
 
+/*
+ * 若输入序列为实序列，需要通过DFT的共轭对称性进行修正
+ * complex_sign：复序列标识符
+ * Xk：经过复序列FFT后的数组指针
+ * real_Xk：用于储存实序列FFT后的数组指针*/
 void process_real_seq(_Bool complex_sign, float complex *Xk, float complex *real_Xk)
 {
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&start);
     unsigned int length = LENGTH;
-    float complex const *ptr_WN_table = real_WN_table;
+    float complex const *ptr_WN_table = real_WN_table;  // 旋转因子查找表指针
     float complex Xek[LENGTH]; float complex Xok[LENGTH];
+
     if(~complex_sign){
         for(unsigned int i = 1; i <= LENGTH - 2; i++){
-            Xek[i] = (Xk[i] + creal(Xk[length - i]) - I * cimag(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])
-            Xok[i] = (Xk[i] - (creal(Xk[length - i]) - I * cimag(Xk[length - i]))) / (2 * I);  // Xo[k] = (-i)/2 * (Y[k] - Y^{*}[N-k])
+            Xek[i] = (Xk[i] + creal(Xk[length - i]) - I * cimag(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])    0<=k<=N-1
+            Xok[i] = (Xk[i] - (creal(Xk[length - i]) - I * cimag(Xk[length - i]))) / (2 * I);  // Xo[k] = /2i * (Y[k] - Y^{*}[N-k])    0<=k<=N-1
         }
         Xek[0] = (Xk[0] + creal(Xk[0]) - I * cimag(Xk[0])) / 2;   // 由于DFT的周期性，X[0]=X[N]，因此n=0时需要单独考虑
         Xok[0] = (Xk[0] - (creal(Xk[0]) - I * cimag(Xk[0]))) / (2 * I); 
         for(unsigned int j = 1; j <= LENGTH - 1; j++){
             real_Xk[j] = Xek[j] + Xok[j] * ptr_WN_table[j];
-            real_Xk[LENGTH * WIDTH - j] = creal(real_Xk[j]) - I * cimag(real_Xk[j]);
+            real_Xk[LENGTH * WIDTH - j] = creal(real_Xk[j]) - I * cimag(real_Xk[j]);    // X[N-k] = X^{*}[k]    0<=k<=N-1
         }
-        real_Xk[0] = Xek[0] + Xok[0] * ptr_WN_table[0]; //对应的real_Xk[LENGTH * WIDTH]为下一个周期的元素
+        real_Xk[0] = Xek[0] + Xok[0] * ptr_WN_table[0]; //对应的real_Xk[LENGTH * WIDTH]为下一个周期的元素，因此需要单独考虑
     }
     else{}
+    QueryPerformanceCounter(&end);
+    real_us = (double)(end.QuadPart - start.QuadPart) * 1e6 / (double)(freq.QuadPart);
     return;
 
 }

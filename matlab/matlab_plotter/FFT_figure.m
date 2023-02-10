@@ -7,7 +7,8 @@ xn_f = single(xn); %% 将数据转为单精度浮点数，后续fft()函数对�
 
 time = hat(); %% 计时器计时开始
 Xk = fft(xn_f);
-diff = hat() - time; %% 计时器计时结束，计算计时数值差，单位ms
+diff = hat() - time; %% 计时器计时结束，计算计时数值差，单位s，精确到us;
+duration = diff * 1e6;
 Nk = length(Xk);
 k = (0: Nk-1);
 Xk_amax = max(abs(Xk)); Xk_amin = min(abs(Xk)); %% 计算幅度最值，用于确定绘图坐标轴范围
@@ -68,3 +69,5 @@ end
     subplot(3, 3, 5); plot(k, angle(Xk));  axis([0, Nk-1, Xk_pmin - Xk_pmin * 0.1, Xk_pmax + Xk_pmax * 0.1]); title('matlab FFT相频特性');
     subplot(3, 3, 7); plot(kc, abs(Xkc_f));  axis([0, Nkc-1, Xkc_amin - Xkc_amin * 0.1, Xkc_amax + Xkc_amax * 0.1]); title('C FFT幅频特性');
     subplot(3, 3, 8); plot(kc, angle(Xkc_f));  axis([0, Nkc-1, Xkc_pmin - Xkc_pmin * 0.1, Xkc_pmax + Xkc_pmax * 0.1]); title('C FFT相频特性');
+
+fprintf("duration is %fus\n", duration);
