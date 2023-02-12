@@ -12,6 +12,7 @@
 #ifndef WIDTH
     #define WIDTH 2
 #endif
+#define epsilon 1e-7
 
 LARGE_INTEGER freq;
 LARGE_INTEGER start, end;
@@ -239,17 +240,22 @@ void process_real_seq(_Bool complex_sign, float complex *Xk, float complex *real
     float complex Xek[LENGTH]; float complex Xok[LENGTH];
 
     if(~complex_sign){
-        for(unsigned int i = 1; i <= LENGTH - 2; i++){
-            Xek[i] = (Xk[i] + creal(Xk[length - i]) - I * cimag(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])    0<=k<=N-1
-            Xok[i] = (Xk[i] - (creal(Xk[length - i]) - I * cimag(Xk[length - i]))) / (2 * I);  // Xo[k] = /2i * (Y[k] - Y^{*}[N-k])    0<=k<=N-1
+        for(unsigned int i = 1; i <= LENGTH - 1; i++){
+            //Xek[i] = (Xk[i] + creal(Xk[length - i]) - I * cimag(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])    0<=k<=N-1
+            //Xok[i] = (Xk[i] - (creal(Xk[length - i]) - I * cimag(Xk[length - i]))) / (2 * I);  // Xo[k] = /2i * (Y[k] - Y^{*}[N-k])    0<=k<=N-1
+            Xek[i] = (Xk[i] + conjf(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])    0<=k<=N-1
+            Xok[i] = (Xk[i] - conjf(Xk[length - i])) / (2 * I);  // Xo[k] = /2i * (Y[k] - Y^{*}[N-k])    0<=k<=N-1
         }
-        Xek[0] = (Xk[0] + creal(Xk[0]) - I * cimag(Xk[0])) / 2;   // 由于DFT的周期性，X[0]=X[N]，因此n=0时需要单独考虑
-        Xok[0] = (Xk[0] - (creal(Xk[0]) - I * cimag(Xk[0]))) / (2 * I); 
+        //Xek[0] = (Xk[0] + creal(Xk[0]) - I * cimag(Xk[0])) / 2;   // 由于DFT的周期性，X[0]=X[N]，因此n=0时需要单独考虑
+        //Xok[0] = (Xk[0] - (creal(Xk[0]) - I * cimag(Xk[0]))) / (2 * I); 
+        Xek[0] = (Xk[0] + conjf(Xk[0])) / 2;   // 由于DFT的周期性，X[0]=X[N]，因此n=0时需要单独考虑
+        Xok[0] = (Xk[0] - conjf(Xk[0])) / (2 * I); 
         for(unsigned int j = 1; j <= LENGTH - 1; j++){
             real_Xk[j] = Xek[j] + Xok[j] * ptr_WN_table[j];
-            real_Xk[LENGTH * WIDTH - j] = creal(real_Xk[j]) - I * cimag(real_Xk[j]);    // X[N-k] = X^{*}[k]    0<=k<=N-1
+            real_Xk[LENGTH * WIDTH - j] = conjf(real_Xk[j]);    // X[N-k] = X^{*}[k]    0<=k<=N-1
         }
         real_Xk[0] = Xek[0] + Xok[0] * ptr_WN_table[0]; //对应的real_Xk[LENGTH * WIDTH]为下一个周期的元素，因此需要单独考虑
+        real_Xk[LENGTH] = Xek[0] + Xok[0] * ptr_WN_table[LENGTH];
     }
     else{}
     QueryPerformanceCounter(&end);
@@ -284,7 +290,7 @@ void write_file(_Bool complex_sign, float complex *Xk, float complex *real_Xk)
     while(count > 0){
         float real = creal(*str_output);
         float imag = cimag(*str_output);
-        if(imag < 0)
+        if(imag < epsilon)  // 浮点数判断正负必须设置精度边界
             fprintf(fp, "%f%fi\n", real, imag); // 虚部<0时需要去掉加号，以适配matlab中readmatrix()的格式要求
         else
             fprintf(fp, "%f+%fi\n", real, imag);
