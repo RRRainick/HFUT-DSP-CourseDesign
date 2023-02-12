@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     process_real_seq(complex_sign, xn, real_Xk);    // 实序列修正
 
     QueryPerformanceCounter(&main_end);  // 获取当前经过的CPU时钟次数
-    duration_us = (double)(main_end.QuadPart - main_start.QuadPart) * 1e6 / (double)(main_freq.QuadPart);    // 时钟次数作差并除以时钟频率得到经过的时间，以ms为单位的
+    duration_us = (double)(main_end.QuadPart - main_start.QuadPart) * 1e6 / (double)(main_freq.QuadPart);    // 时钟次数作差并除以时钟频率得到经过的时间，以us为单位的
 
     write_file(complex_sign, xn, real_Xk);
     printf("rollover cost %fus, reverse cost %fus, compute butterfly cost %fus, real process cost %fus.\n", rollover_us, reverse_us, btf_us, real_us);
@@ -148,7 +148,7 @@ void rollover_seq(float const (*ptr_input)[WIDTH], float complex *xn)
     }
 
     QueryPerformanceCounter(&end);  // 获取当前经过的CPU时钟次数
-    rollover_us = (double)(end.QuadPart - start.QuadPart) * 1e6 / (double)(freq.QuadPart);    // 时钟次数作差并处以时钟频率得到经过的时间，以ms为单位的
+    rollover_us = (double)(end.QuadPart - start.QuadPart) * 1e6 / (double)(freq.QuadPart);    // 时钟次数作差并处以时钟频率得到经过的时间，以us为单位的
     
     return;
 } 
