@@ -66,7 +66,7 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
     char ch;
     unsigned int digit = 0; // 表示数字位数
     unsigned int count = LENGTH * WIDTH; // 下标计数器，避免数组越界
-    double i_decp = 0.0;    // 表示左起小数点的位置
+    double i_decp = 0.0;    // index_decimal_point，表示左起小数点的位置
     double tmp_num = 0.0;   // 临时储存数字和
     _Bool plus_sign = 1;    // 正数指示变量（主要用于判断负数）
     _Bool complex_sign = 0; // 复数指示变量
@@ -96,24 +96,24 @@ _Bool read_file(float *ptr_seq, int argc, char *argv[])
             case '-':
                 plus_sign = 0;
                 break;
-            case 'i':   // 读取到i及判断为复序列
+            case 'i':   // 读取到i即判断为复序列
                 complex_sign = 1;
                 break;
             case ' ':
             case '\n':
-                if(i_decp == 0){
+                if(i_decp == 0){    // 输入为整数的情况
                     for(int i = 0; i < digit; i++){
                             tmp_num += tmp_array[i] * pow(10.0, digit-1.0-i);
                         }
                 }
-                else{
+                else{   // 输入为浮点数的情况
                     for(int i = 0; i < digit; i++){
                         tmp_num += tmp_array[i] * pow(10.0, i_decp-1.0-i);
                     }
                 }
                 if(!plus_sign)
                     tmp_num = (-1.0)*tmp_num;
-                *ptr_seq = tmp_num;
+                *ptr_seq = tmp_num; // 计算值写入数组
                 ptr_seq++; count--;
                 digit = 0; tmp_num = 0.0; plus_sign = 1; i_decp = 0.0;  // 变量复位
                 break;
@@ -198,7 +198,6 @@ void compute_butterfly(float complex * const r_xn)
 
     unsigned int max_stage = (unsigned int)log2((double)length);    //计算所需的stage个数
     unsigned int j_max = length / 2;    // 每个stage内循环次数
-    //unsigned int j_max = (unsigned int)pow(2.0, (double)(max_stage-1)); 
     unsigned int k_max = 1;     // 每个循环内的蝶形运算次数
     for(unsigned int i = 1; i <= max_stage; i++){
         for(unsigned int j = 1; j <= j_max; j++){
