@@ -53,7 +53,7 @@ xtc_x_lim = xnc_x_lim ./ fs; Xomgc_x_lim = [0, fs/2]; Xomgc_py_lim = [-pi, pi];
 %%=======================================
 %% 绘图
 %% 验证结果
-%
+
 figure1 = figure('name', '基于C语言的单精度FFT算法实现验证');
 if ~isreal(xn)
     xn_amax = max(abs(xn)); xn_amin = min(abs(xn)); %% 计算幅度最值，用于确定绘图坐标轴范围

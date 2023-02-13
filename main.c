@@ -241,13 +241,9 @@ void process_real_seq(_Bool complex_sign, float complex *Xk, float complex *real
 
     if(~complex_sign){
         for(unsigned int i = 1; i <= LENGTH - 1; i++){
-            //Xek[i] = (Xk[i] + creal(Xk[length - i]) - I * cimag(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])    0<=k<=N-1
-            //Xok[i] = (Xk[i] - (creal(Xk[length - i]) - I * cimag(Xk[length - i]))) / (2 * I);  // Xo[k] = /2i * (Y[k] - Y^{*}[N-k])    0<=k<=N-1
             Xek[i] = (Xk[i] + conjf(Xk[length - i])) / 2;   // Xe[k] = 1/2 * (Y[k] + Y^{*}[N-k])    0<=k<=N-1
             Xok[i] = (Xk[i] - conjf(Xk[length - i])) / (2 * I);  // Xo[k] = /2i * (Y[k] - Y^{*}[N-k])    0<=k<=N-1
         }
-        //Xek[0] = (Xk[0] + creal(Xk[0]) - I * cimag(Xk[0])) / 2;   // 由于DFT的周期性，X[0]=X[N]，因此n=0时需要单独考虑
-        //Xok[0] = (Xk[0] - (creal(Xk[0]) - I * cimag(Xk[0]))) / (2 * I); 
         Xek[0] = (Xk[0] + conjf(Xk[0])) / 2;   // 由于DFT的周期性，X[0]=X[N]，因此n=0时需要单独考虑
         Xok[0] = (Xk[0] - conjf(Xk[0])) / (2 * I); 
         for(unsigned int j = 1; j <= LENGTH - 1; j++){
